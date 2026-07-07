@@ -1,0 +1,9 @@
+phase,team,minutes,field_tilt,shots,xg,goals,passes,prog,ppda
+1st half,Argentina,0-45,69.7,6,1.292,2,284,16,3.75
+1st half,France,0-45,30.3,0,0.0,0,174,9,4.33
+2nd half to 79',Argentina,45-80,50.6,4,0.257,0,180,13,3.4
+2nd half to 79',France,45-80,49.4,3,0.93,1,229,6,2.5
+80-90' collapse,Argentina,80-90,43.9,1,0.03,0,30,2,4.0
+80-90' collapse,France,80-90,56.1,1,0.102,1,44,4,3.0
+Extra time,Argentina,90-120,66.9,8,1.073,1,176,15,3.19
+Extra time,France,90-120,33.1,5,0.963,1,117,8,3.34

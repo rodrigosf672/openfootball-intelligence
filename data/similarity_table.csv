@@ -1,0 +1,8 @@
+match_id,possession,field_tilt,pass_completion,progressive_passes,final_third_entries,xt_total,shots,xg,ppda,opp,competition_stage,match_date,label,similarity
+3857275,66.4,66.1,85.3,39.0,42.0,1.16,10.0,0.477,3.14,Tunisia,Group Stage,2022-11-30,Tunisia (Group),-0.16386131928274028
+3857266,51.5,46.2,85.9,38.0,36.0,3.321,21.0,1.934,5.96,Denmark,Group Stage,2022-11-26,Denmark (Group),-0.6495493101098417
+3869685,45.8,39.5,76.1,29.0,34.0,1.416,10.0,2.273,3.02,Argentina,Final,2022-12-18,Argentina (Final),1.0
+3869354,40.2,46.7,79.6,29.0,36.0,1.813,8.0,0.839,5.17,England,Quarter-finals,2022-12-10,England (QF),0.4284340349233893
+3869552,39.2,30.4,81.7,30.0,20.0,1.771,14.0,2.002,3.33,Morocco,Semi-finals,2022-12-14,Morocco (SF),0.6939154402085459
+3869152,53.5,66.7,85.2,28.0,44.0,1.769,16.0,1.126,4.34,Poland,Round of 16,2022-12-04,Poland (R16),-0.32993860822499776
+3857279,60.5,75.1,89.1,47.0,63.0,4.421,23.0,3.17,5.19,Australia,Group Stage,2022-11-22,Australia (Group),-0.688120932518058
