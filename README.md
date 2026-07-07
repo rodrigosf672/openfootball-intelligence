@@ -26,6 +26,8 @@ goals in 95 seconds** (79′–81′). France's Final profile most resembled the
 
 Full analysis in [`analysis_report.md`](analysis_report.md).
 
+More worked questions on other matches (Spain–Morocco, El Clásico, Netherlands–Argentina) in [`example_exchanges.md`](example_exchanges.md).
+
 ### Figures
 
 | Passing networks | Shot map |
