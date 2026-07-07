@@ -39,6 +39,11 @@ defines the metric functions below in your kernel via `kernel.py`.
 | `passing_network(df, team)` | (nodes, edges) with avg location, pass volume, betweenness centrality |
 | `phase_split(df, windows)` | per-team metrics within `[(lo,hi,label),...]` minute windows |
 | `similarity_rank(vectors_df, target_idx, feature_cols)` | cosine-similarity ranking of matches |
+| `snapshot(events, as_of_minute)` | match state up to a clock minute (core live primitive) |
+| `live_state(events, as_of_minute)` | one-call snapshot: minute, score, field tilt, full team metrics |
+| `current_score(events, as_of_minute=None)` | {team: goals} at a minute |
+| `live_replay(events, step_minutes=5)` | generator yielding (minute, live_state) — simulate/consume a live feed |
+| `register_source(name, fetch_fn)` | plug in a licensed live provider (Hudl StatsBomb, Opta, Sportradar) |
 
 **Metric notes.** Betweenness centrality uses *inverse* pass volume as edge
 distance (heavy links = short = central) — the correct convention for
@@ -64,6 +69,29 @@ Load `figure-style` and call `apply_figure_style()` first. Recommended set:
 - **Shot map**: `VerticalPitch(half=True)`, marker area ∝ xG, ring goals.
 - **xG timeline**: cumulative step chart per team, goals annotated, half-time/ET breaks marked.
 - **Momentum**: net expected threat per 5-min window (positive = team A, negative = team B), goals as vertical lines.
+
+
+## Live / in-progress matches
+
+OFI's metrics are **source-agnostic** — a live match is the same engine reading
+events up to the current minute. Two mechanisms make it live-ready:
+
+- **As-of-minute mode.** `live_state(events, 63)` (or `load_match(id, as_of_minute=63)`)
+  computes every metric on the game state up to minute 63 — this is how you ask
+  *"why is X struggling right now"* mid-match. `live_replay(events, step_minutes=5)`
+  streams the state forward so answers evolve with the game.
+- **Provider adapters.** `register_source("live", fetch_fn)` plugs in any feed;
+  `fetch_fn(match_id)` returns events in StatsBomb schema. Then
+  `load_match(id, source="live", as_of_minute=N)` runs unchanged.
+
+**Data reality (important).** Full live event data *with x/y coordinates and xG*
+— required for OFI's spatial metrics — comes only from **licensed** providers
+(Hudl StatsBomb, Opta/Stats Perform, Sportradar, Sportmonks). StatsBomb *open*
+data is free but released **after** tournaments, not live. Free live APIs
+(Sofascore, API-Football) give scores/basic counts, not the coordinate event
+stream. So live 2026 World Cup analysis is feasible the moment a licensed feed
+is wired into `register_source()`; on open data alone, use as-of-minute mode on
+completed matches (and StatsBomb's post-tournament release).
 
 ## Response format (always)
 

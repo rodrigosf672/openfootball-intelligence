@@ -1,4 +1,4 @@
-"""OpenFootball Intelligence (OFI) — reusable metric & workflow library.
+"""OpenFootball Intelligence (OFI) — reusable metric & workflow library (v0.2 -- adds live/as-of-minute mode).
 
 Computes advanced football metrics from StatsBomb-format event data
 (pandas DataFrame with `type`, `team`, `location`, `pass_end_location`,
@@ -29,18 +29,28 @@ DEFAULT_TEAM_COLORS = ("#6CACE4", "#1A2C5B")
 
 
 # --- StatsBomb loader ---
-def load_match(match_id, drop_shootout=True, creds=None):
-    """Load a StatsBomb open-data match as an events DataFrame.
+def load_match(match_id, source="statsbomb", drop_shootout=True, as_of_minute=None):
+    """Load a match as an events DataFrame with coordinates attached.
 
-    match_id: StatsBomb match id. drop_shootout: keep periods <=4 (regulation
-    + extra time), dropping penalty shootouts. Returns events with start/end
-    coords already attached via add_coords().
+    source: "statsbomb" (open data via statsbombpy) or any name registered with
+      register_source() -- e.g. a licensed live feed (Hudl StatsBomb API, Opta,
+      Sportradar, Sportmonks). drop_shootout keeps periods <=4. as_of_minute
+      (optional) returns only the game state up to that minute -- the live-query
+      mode used to ask "why is X struggling right now".
     """
-    from statsbombpy import sb
-    ev = sb.events(match_id=match_id)
-    if drop_shootout:
+    if source == "statsbomb":
+        from statsbombpy import sb
+        ev = sb.events(match_id=match_id)
+    else:
+        if source not in LIVE_ADAPTERS:
+            raise ValueError("unknown source '%s'; register it with register_source() first" % source)
+        ev = LIVE_ADAPTERS[source](match_id)
+    if drop_shootout and "period" in ev.columns:
         ev = ev[ev["period"] <= 4].copy()
-    return add_coords(ev)
+    ev = add_coords(ev)
+    if as_of_minute is not None:
+        ev = snapshot(ev, as_of_minute)
+    return ev
 
 
 def list_matches(competition_id, season_id):
@@ -258,3 +268,72 @@ def similarity_rank(vectors_df, target_idx, feature_cols):
     df = vectors_df.copy()
     df["similarity"] = [1 - cosine(Z[i], Z[target_idx]) for i in range(len(Z))]
     return df.sort_values("similarity", ascending=False)
+
+
+# ============================================================================
+# Live capability: data-source adapters + as-of-minute state + replay
+# ----------------------------------------------------------------------------
+# OFI's metrics are source-agnostic. Historical open data is loaded directly;
+# a live match is the SAME engine reading events up to the current minute.
+# A licensed live provider plugs in through register_source() -- nothing in the
+# metric functions changes.
+# ============================================================================
+
+LIVE_ADAPTERS = {}
+
+
+def register_source(name, fetch_fn):
+    """Register a data-source adapter so load_match(match_id, source=name) works.
+
+    fetch_fn(match_id) must return an events DataFrame in StatsBomb schema
+    (columns: type, team, location, pass_end_location, carry_end_location,
+    minute, second, period, shot_statsbomb_xg, pass_outcome, ...). This is the
+    single integration point for a licensed live feed: implement fetch_fn to
+    poll/stream the provider and normalize to this schema, register it once, and
+    every OFI metric + figure works unchanged on the live match.
+    """
+    LIVE_ADAPTERS[name] = fetch_fn
+    return sorted(LIVE_ADAPTERS)
+
+
+def snapshot(events, as_of_minute, as_of_second=0):
+    """Match state as it stood at a clock time: every event at or before
+    (as_of_minute, as_of_second). The core live primitive -- computing any
+    metric on snapshot(events, 63) answers the question 'as of minute 63'."""
+    cutoff = as_of_minute * 60 + as_of_second
+    t = events["minute"].astype(float) * 60 + events["second"].astype(float)
+    return events[t <= cutoff].copy()
+
+
+def current_score(events, as_of_minute=None):
+    """Score {team: goals} at a minute (or full match if None). Counts scored
+    goals from Shot events; own goals (rare) are not attributed here."""
+    e = events if as_of_minute is None else snapshot(events, as_of_minute)
+    g = e[(e["type"] == "Shot") & (e["shot_outcome"] == "Goal") & (e["period"] <= 4)]
+    return g.groupby("team").size().to_dict()
+
+
+def live_state(events, as_of_minute):
+    """One-call live snapshot: minute, score, field tilt, and full per-team
+    metrics computed on the game up to `as_of_minute`. Feed this straight into
+    a 'why' answer for a live or in-progress match."""
+    snap = snapshot(events, as_of_minute)
+    return {
+        "as_of_minute": as_of_minute,
+        "score": current_score(snap),
+        "field_tilt": field_tilt(snap),
+        "team_metrics": team_metrics(snap),
+    }
+
+
+def live_replay(events, step_minutes=5, start=0, end=None):
+    """Generator that simulates a live feed: yields (minute, live_state) at each
+    step. Use it to test the incremental engine on a historical match, or to
+    drive a live ticker. In production the same loop consumes a provider push
+    feed instead of a file."""
+    if end is None:
+        end = int(events["minute"].astype(float).max()) + 1
+    m = start + step_minutes
+    while m <= end:
+        yield m, live_state(events, m)
+        m += step_minutes

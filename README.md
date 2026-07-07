@@ -94,6 +94,8 @@ See [`OFI_positioning.md`](OFI_positioning.md) — the case for OFI as an open
 infrastructure layer for AI-native football analysis rather than another demo.
 **More AI. Less engineering.**
 
+**Live matches:** OFI can answer questions on in-progress games (as-of-minute mode + provider adapters). Feasibility, architecture, and the licensed-feed integration are documented in [`LIVE.md`](LIVE.md).
+
 ## License & data
 
 Code: MIT. Event data © StatsBomb, provided free for public use under the
