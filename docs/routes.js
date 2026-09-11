@@ -8,8 +8,17 @@ function fmtPct(x) {
   return Number.isFinite(x) ? `${x.toFixed(1)}%` : "n/a";
 }
 
+const DEFAULT_MATCH_ID = 3869685; // Argentina 3-3 France, WC 2022 Final -- the only match with pre-rendered figures
+
 function fixtureLabel(prov) {
   return `${prov.fixture} - ${prov.competition}${prov.date ? " (" + prov.date + ")" : ""}`;
+}
+
+// The bundled figures/*.png are illustrations of the default match only.
+// Attaching them to a different, live-loaded match would show the wrong
+// picture next to correct text -- so they only apply here.
+function figureFor(prov, filename) {
+  return prov.match_id === DEFAULT_MATCH_ID ? `figures/${filename}` : null;
 }
 
 function buildOverview(events, prov) {
@@ -69,7 +78,7 @@ function buildNetwork(events, prov, team) {
   ];
   for (const r of top) lines.push(`- ${r.player}: ${r.passes} passes, betweenness ${r.betweenness.toFixed(3)}`);
   lines.push("", `_Computed via `+ "`passingNetwork(events, \"" + team + "\")`" + "._");
-  return { text: lines.join("\n"), image: "figures/passing_network.png" };
+  return { text: lines.join("\n"), image: figureFor(prov, "passing_network.png") };
 }
 
 function buildPhase(events, prov) {
@@ -82,7 +91,7 @@ function buildPhase(events, prov) {
     );
   }
   lines.push("", "_Computed via `phaseSplit(events, [[0,45,'1st half'], [45,90,'2nd half'], [90,120,'Extra time']])`._");
-  return { text: lines.join("\n"), image: "figures/xg_timeline.png" };
+  return { text: lines.join("\n"), image: figureFor(prov, "xg_timeline.png") };
 }
 
 function buildSimilarity(prov, similarityData) {
@@ -101,7 +110,7 @@ function buildSimilarity(prov, similarityData) {
       + `(possession ${r.possession.toFixed(0)}%, field tilt ${r.field_tilt.toFixed(0)}%, xG ${r.xg.toFixed(2)})`);
   }
   lines.push("", "_Computed via `similarity_rank()` (Python) over France's tournament matches; cached from `ofi.py`._");
-  return { text: lines.join("\n"), image: "figures/similarity.png" };
+  return { text: lines.join("\n"), image: figureFor(prov, "similarity.png") };
 }
 
 function buildWhyPassive(events, prov) {
@@ -117,9 +126,13 @@ function buildWhyPassive(events, prov) {
     const extra = fh ? `, ${fh.xg.toFixed(2)} first-half xG on ${fh.shots} shots (PPDA ${fh.ppda.toFixed(2)})` : "";
     lines.push(`- **${t}** overall: ${fmtPct(r.fieldTilt)} field tilt, ${r.xg.toFixed(2)} xG, ${r.goals} goals${extra}`);
   }
-  lines.push("", "_Computed via `teamMetrics()` and `phaseSplit()`. For the full evidence-first narrative on this "
-    + "exact question (default match only), see `analysis_report.md` in the GitHub repo._");
-  return { text: lines.join("\n"), image: "figures/momentum.png" };
+  const isDefault = prov.match_id === DEFAULT_MATCH_ID;
+  const note = isDefault
+    ? "For the full evidence-first narrative on this exact question, see `analysis_report.md` in the GitHub repo."
+    : "This is a generic tactical summary computed the same way as the World Cup Final analysis in this repo, "
+      + "not a hand-written narrative for this specific match.";
+  lines.push("", `_Computed via `+ "`teamMetrics()` and `phaseSplit()`" + `. ${note}_`);
+  return { text: lines.join("\n"), image: figureFor(prov, "momentum.png") };
 }
 
 const KEYWORD_ROUTES = [
