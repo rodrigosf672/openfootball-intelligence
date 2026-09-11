@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenFootball Intelligence</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>OpenFootball Intelligence</h1>
+      <p class="tagline">Ask why. Get tactical evidence.</p>
+      <p id="fixture-line">Loading...</p>
+      <p>
+        Every answer below is computed from real StatsBomb event data using the open-source
+        <a href="https://github.com/rodrigosf672/openfootball-intelligence" target="_blank" rel="noopener">ofi.py</a>
+        library -- there is no language model in the loop, so nothing here is invented or paraphrased.
+      </p>
+    </header>
+
+    <div class="ask-row">
+      <input id="question" type="text" placeholder="e.g. Why was France passive for 70 minutes?">
+      <button id="ask-btn">Ask</button>
+    </div>
+
+    <div id="examples" class="examples"></div>
+
+    <div id="answer">Loading...</div>
+    <div id="answer-image"></div>
+
+    <footer>
+      Source, methodology, and full match report:
+      <a href="https://github.com/rodrigosf672/openfootball-intelligence" target="_blank" rel="noopener">github.com/rodrigosf672/openfootball-intelligence</a>.
+      Event data &copy; StatsBomb, provided free under the StatsBomb open-data terms.
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
