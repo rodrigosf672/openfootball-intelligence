@@ -29,7 +29,7 @@ async function loadDefaultMatch() {
   ]);
   let events = window.OFI.flattenEvents(rawEvents);
   events = events.filter((e) => e.period != null && e.period <= 4);
-  state = { events, provenance: prov, similarityData: similarity, isDefaultMatch: true };
+  state = { events, provenance: { ...prov, n_events: events.length }, similarityData: similarity, isDefaultMatch: true };
 }
 
 async function loadMatch(matchIdStr) {
@@ -147,6 +147,11 @@ function setupLlmToggle() {
   });
 }
 
+async function afterMatchLoaded() {
+  document.getElementById("fixture-line").textContent = fixtureLine(state.provenance);
+  renderAnswer(window.OFI_ROUTES.buildOverview(state.events, state.provenance), null);
+}
+
 async function onLoadMatch() {
   const input = document.getElementById("match-id");
   const statusEl = document.getElementById("load-status");
@@ -164,8 +169,82 @@ async function onLoadMatch() {
       return;
     }
   }
-  document.getElementById("fixture-line").textContent = fixtureLine(state.provenance);
-  renderAnswer(window.OFI_ROUTES.buildOverview(state.events, state.provenance), null);
+  await afterMatchLoaded();
+  resetSelectsToPlaceholder();
+}
+
+// --- Competition / Match dropdown picker -----------------------------------
+
+function resetSelectsToPlaceholder() {
+  document.getElementById("competition-select").value = "";
+  const matchSelect = document.getElementById("match-select");
+  matchSelect.innerHTML = '<option value="">Select a competition first</option>';
+  matchSelect.disabled = true;
+}
+
+function matchLabel(m) {
+  const stage = m.competition_stage && m.competition_stage.name ? ` (${m.competition_stage.name})` : "";
+  return `${m.home_team.home_team_name} ${m.home_score}-${m.away_score} ${m.away_team.away_team_name}${stage} - ${m.match_date}`;
+}
+
+async function setupCompetitionPicker() {
+  const compSelect = document.getElementById("competition-select");
+  const matchSelect = document.getElementById("match-select");
+  const statusEl = document.getElementById("load-status");
+
+  try {
+    const competitions = await window.OFI_LOADER.fetchCompetitions();
+    compSelect.innerHTML = '<option value="">Select a competition...</option>' + competitions.map(
+      (c) => `<option value="${c.competition_id}_${c.season_id}">${c.competition_name} - ${c.season_name}</option>`
+    ).join("");
+  } catch (e) {
+    compSelect.innerHTML = '<option value="">Could not load competition list</option>';
+    statusEl.textContent = "Could not load competition list: " + e.message;
+    return;
+  }
+
+  compSelect.addEventListener("change", async () => {
+    const val = compSelect.value;
+    if (!val) {
+      matchSelect.innerHTML = '<option value="">Select a competition first</option>';
+      matchSelect.disabled = true;
+      return;
+    }
+    const [competitionId, seasonId] = val.split("_");
+    matchSelect.disabled = true;
+    matchSelect.innerHTML = '<option value="">Loading matches...</option>';
+    try {
+      const matches = await window.OFI_LOADER.fetchMatches(competitionId, seasonId);
+      matchSelect.innerHTML = '<option value="">Select a match...</option>' + matches.map(
+        (m) => `<option value="${m.match_id}">${matchLabel(m)}</option>`
+      ).join("");
+      matchSelect.disabled = false;
+    } catch (e) {
+      matchSelect.innerHTML = '<option value="">Could not load matches</option>';
+      statusEl.textContent = "Could not load matches: " + e.message;
+    }
+  });
+
+  matchSelect.addEventListener("change", async () => {
+    const matchId = matchSelect.value;
+    if (!matchId) return;
+    statusEl.textContent = "Loading match from StatsBomb open data...";
+    try {
+      await loadMatch(matchId);
+      statusEl.textContent = `Loaded. ${fixtureLine(state.provenance)}`;
+      await afterMatchLoaded();
+    } catch (e) {
+      statusEl.textContent = "Could not load that match: " + e.message;
+    }
+  });
+}
+
+async function onResetDefault() {
+  await loadDefaultMatch();
+  document.getElementById("load-status").textContent = `Loaded default match. ${fixtureLine(state.provenance)}`;
+  document.getElementById("match-id").value = "";
+  resetSelectsToPlaceholder();
+  await afterMatchLoaded();
 }
 
 const EXAMPLES = [
@@ -203,6 +282,8 @@ async function init() {
     if (e.key === "Enter") ask();
   });
   document.getElementById("load-btn").addEventListener("click", onLoadMatch);
+  document.getElementById("reset-default-btn").addEventListener("click", onResetDefault);
+  setupCompetitionPicker();
 
   // llm.js is a module script and may still be evaluating; wait for it
   // (up to a few seconds) instead of checking exactly once.

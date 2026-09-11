@@ -10,6 +10,9 @@ const STATSBOMB_EVENTS_URL = (matchId) =>
 const STATSBOMB_MATCHES_URL = (competitionId, seasonId) =>
   `https://raw.githubusercontent.com/statsbomb/open-data/master/data/matches/${competitionId}/${seasonId}.json`;
 
+const STATSBOMB_COMPETITIONS_URL =
+  "https://raw.githubusercontent.com/statsbomb/open-data/master/data/competitions.json";
+
 async function fetchMatchEvents(matchId) {
   const res = await fetch(STATSBOMB_EVENTS_URL(matchId));
   if (!res.ok) {
@@ -21,4 +24,33 @@ async function fetchMatchEvents(matchId) {
   return events;
 }
 
-window.OFI_LOADER = { fetchMatchEvents };
+let competitionsCache = null;
+
+async function fetchCompetitions() {
+  if (competitionsCache) return competitionsCache;
+  const res = await fetch(STATSBOMB_COMPETITIONS_URL);
+  if (!res.ok) throw new Error(`Could not load competition list (HTTP ${res.status})`);
+  const data = await res.json();
+  // De-dupe + sort: competition name, then season descending (most recent first)
+  data.sort((a, b) => {
+    if (a.competition_name !== b.competition_name) return a.competition_name.localeCompare(b.competition_name);
+    return b.season_name.localeCompare(a.season_name);
+  });
+  competitionsCache = data;
+  return data;
+}
+
+const matchesCache = new Map();
+
+async function fetchMatches(competitionId, seasonId) {
+  const key = `${competitionId}/${seasonId}`;
+  if (matchesCache.has(key)) return matchesCache.get(key);
+  const res = await fetch(STATSBOMB_MATCHES_URL(competitionId, seasonId));
+  if (!res.ok) throw new Error(`Could not load matches for competition ${competitionId}/${seasonId} (HTTP ${res.status})`);
+  const data = await res.json();
+  data.sort((a, b) => (a.match_date || "").localeCompare(b.match_date || ""));
+  matchesCache.set(key, data);
+  return data;
+}
+
+window.OFI_LOADER = { fetchMatchEvents, fetchCompetitions, fetchMatches };

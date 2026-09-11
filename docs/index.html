@@ -34,16 +34,32 @@
     <div class="panel">
       <h3>Analyze any match</h3>
       <p class="muted">
-        Enter any public StatsBomb open-data <code>match_id</code> (browse them at
-        <a href="https://github.com/statsbomb/open-data" target="_blank" rel="noopener">statsbomb/open-data</a>)
-        to fetch and analyze it live, entirely in your browser. Leave blank and click Load to return to the
-        default World Cup Final.
+        Pick a competition and a match to fetch and analyze it live, entirely in your browser
+        (data: <a href="https://github.com/statsbomb/open-data" target="_blank" rel="noopener">StatsBomb open data</a>).
       </p>
-      <div class="ask-row">
-        <input id="match-id" type="text" placeholder="e.g. 3869220 (Morocco vs Spain)">
-        <button id="load-btn">Load match</button>
+      <div class="select-row">
+        <div class="select-field">
+          <label for="competition-select">Competition</label>
+          <select id="competition-select">
+            <option value="">Loading competitions...</option>
+          </select>
+        </div>
+        <div class="select-field">
+          <label for="match-select">Match</label>
+          <select id="match-select" disabled>
+            <option value="">Select a competition first</option>
+          </select>
+        </div>
       </div>
       <p id="load-status" class="muted"></p>
+      <button id="reset-default-btn" class="link-btn">Reset to default match (World Cup Final)</button>
+      <details class="advanced">
+        <summary>Advanced: enter a match_id directly</summary>
+        <div class="ask-row">
+          <input id="match-id" type="text" placeholder="e.g. 3869220">
+          <button id="load-btn">Load</button>
+        </div>
+      </details>
     </div>
 
     <div class="panel">
