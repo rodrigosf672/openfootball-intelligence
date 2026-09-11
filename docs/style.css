@@ -122,6 +122,60 @@ footer {
 
 footer a { color: var(--accent); }
 
+.panel {
+  margin-top: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.panel h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+#llm-toggle {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--accent-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#llm-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.llm-answer {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin-bottom: 12px;
+}
+
+.llm-label {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.evidence-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 12px 0 6px;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     --bg: #f7f8fa;

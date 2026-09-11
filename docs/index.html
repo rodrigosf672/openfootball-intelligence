@@ -13,9 +13,11 @@
       <p class="tagline">Ask why. Get tactical evidence.</p>
       <p id="fixture-line">Loading...</p>
       <p>
-        Every answer below is computed from real StatsBomb event data using the open-source
-        <a href="https://github.com/rodrigosf672/openfootball-intelligence" target="_blank" rel="noopener">ofi.py</a>
-        library -- there is no language model in the loop, so nothing here is invented or paraphrased.
+        Every number below is computed live in your browser from real StatsBomb event data
+        (<a href="https://github.com/rodrigosf672/openfootball-intelligence" target="_blank" rel="noopener">ofi.js</a>,
+        a verified port of the open-source <code>ofi.py</code> library) -- no server, and by default no LLM,
+        so nothing is invented. An optional local LLM can phrase answers more naturally; it only ever
+        rephrases the computed facts, which stay visible underneath.
       </p>
     </header>
 
@@ -29,12 +31,42 @@
     <div id="answer">Loading...</div>
     <div id="answer-image"></div>
 
+    <div class="panel">
+      <h3>Analyze any match</h3>
+      <p class="muted">
+        Enter any public StatsBomb open-data <code>match_id</code> (browse them at
+        <a href="https://github.com/statsbomb/open-data" target="_blank" rel="noopener">statsbomb/open-data</a>)
+        to fetch and analyze it live, entirely in your browser. Leave blank and click Load to return to the
+        default World Cup Final.
+      </p>
+      <div class="ask-row">
+        <input id="match-id" type="text" placeholder="e.g. 3869220 (Morocco vs Spain)">
+        <button id="load-btn">Load match</button>
+      </div>
+      <p id="load-status" class="muted"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Local LLM (optional)</h3>
+      <p class="muted">
+        Runs entirely in your browser via WebGPU (no server, nothing sent anywhere). It only phrases the
+        computed evidence above into natural language -- it is not allowed to add facts of its own.
+        First use downloads a small model (a few hundred MB), which can take a while.
+      </p>
+      <button id="llm-toggle">Enable local LLM</button>
+      <p id="llm-status" class="muted"></p>
+    </div>
+
     <footer>
       Source, methodology, and full match report:
       <a href="https://github.com/rodrigosf672/openfootball-intelligence" target="_blank" rel="noopener">github.com/rodrigosf672/openfootball-intelligence</a>.
       Event data &copy; StatsBomb, provided free under the StatsBomb open-data terms.
     </footer>
   </div>
+  <script src="ofi.js"></script>
+  <script src="statsbomb.js"></script>
+  <script src="routes.js"></script>
+  <script type="module" src="llm.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

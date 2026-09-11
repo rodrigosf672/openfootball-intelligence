@@ -1,53 +1,55 @@
 /*
- * Rule-based question router over precomputed OFI answers (data.json).
- * Every answer's text was generated once by ofi.py from real StatsBomb event
- * data (see scripts/build_static_site.py) -- this file only picks which
- * precomputed answer to show. No numbers are computed or invented here.
+ * Wires the page together. All metrics are computed live in the browser by
+ * ofi.js (a verified JS port of ofi.py) -- nothing here is precomputed on a
+ * server. See ofi.js and routes.js for the actual computation and answer
+ * formatting; this file just handles UI state.
  */
-let DATA = null;
 
-const ROUTES = [
-  { re: /press|ppda|intensity/i, key: "press" },
-  { re: /\bxg\b|expected goal|shot/i, key: "xg" },
-  { re: /progress|final.?third|zone.?14|entr(y|ies)/i, key: "progression" },
-  { re: /similar|historical|compare.*tournament|other.*match/i, key: "similarity" },
-  { re: /passive|why.*struggl|why.*comeback|why.*control/i, key: "why_passive" },
-  { re: /half|phase|extra time|minute|before|after/i, key: "phase" },
-  { re: /possess|control|overview|summary|dominant|comparison|compare$/i, key: "overview" },
-];
+const DEFAULT_EVENTS_URL = "data_default_match_events.json";
+const SIMILARITY_URL = "data_similarity.json";
+const PROVENANCE_URL = "data_provenance.json";
 
-function findTeam(question) {
-  const q = question.toLowerCase();
-  return DATA.teams.find((t) => q.includes(t.toLowerCase()));
+let state = {
+  events: null,
+  provenance: null,
+  similarityData: null,
+  isDefaultMatch: true,
+};
+
+function fixtureLine(prov) {
+  return `Match: ${prov.fixture} - ${prov.competition}${prov.date ? " (" + prov.date + ")" : ""}, `
+    + `${prov.n_events} events${prov.source ? ", " + prov.source : ""}.`;
 }
 
-function routeQuestion(question) {
-  const q = (question || "").trim();
-  if (!q) {
-    return { text: "Ask a tactical question, or pick one of the examples below.", image: null };
-  }
-  const lower = q.toLowerCase();
-  if (/network|passer|playmaker|centrality|isolat|key player/.test(lower)) {
-    const team = findTeam(lower) || DATA.teams[0];
-    const route = DATA.routes[`network_${team.toLowerCase()}`];
-    if (route) return route;
-  }
-  for (const { re, key } of ROUTES) {
-    if (re.test(lower) && DATA.routes[key]) {
-      return DATA.routes[key];
-    }
-  }
-  const fallback = DATA.routes.overview;
-  return {
-    text:
-      "_Couldn't match that to a specific metric, so here's the full team comparison instead. " +
-      "Try one of the example questions below for a more targeted answer._\n\n" +
-      fallback.text,
-    image: fallback.image,
+async function loadDefaultMatch() {
+  const [rawEvents, prov, similarity] = await Promise.all([
+    fetch(DEFAULT_EVENTS_URL).then((r) => r.json()),
+    fetch(PROVENANCE_URL).then((r) => r.json()),
+    fetch(SIMILARITY_URL).then((r) => r.json()),
+  ]);
+  let events = window.OFI.flattenEvents(rawEvents);
+  events = events.filter((e) => e.period != null && e.period <= 4);
+  state = { events, provenance: prov, similarityData: similarity, isDefaultMatch: true };
+}
+
+async function loadMatch(matchIdStr) {
+  const matchId = parseInt(matchIdStr, 10);
+  if (!Number.isInteger(matchId)) throw new Error("match_id must be a whole number");
+  const events = await window.OFI_LOADER.fetchMatchEvents(matchId);
+  const teams = window.OFI.teamList(events);
+  const prov = {
+    match_id: matchId,
+    fixture: teams.join(" vs "),
+    competition: "StatsBomb open data",
+    date: "",
+    source: "StatsBomb Open Data (fetched live)",
+    n_events: events.length,
   };
+  state = { events, provenance: prov, similarityData: null, isDefaultMatch: false };
 }
 
-// Minimal markdown -> HTML: bold, italics, bullet lists, paragraphs. No external deps.
+// ---------------------------------------------------------------------------
+
 function renderMarkdown(md) {
   const lines = md.split("\n");
   let html = "";
@@ -55,19 +57,11 @@ function renderMarkdown(md) {
   for (const raw of lines) {
     const line = raw.trim();
     if (line.startsWith("- ")) {
-      if (!inList) {
-        html += "<ul>";
-        inList = true;
-      }
+      if (!inList) { html += "<ul>"; inList = true; }
       html += `<li>${inlineMd(line.slice(2))}</li>`;
     } else {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
-      if (line.length) {
-        html += `<p>${inlineMd(line)}</p>`;
-      }
+      if (inList) { html += "</ul>"; inList = false; }
+      if (line.length) html += `<p>${inlineMd(line)}</p>`;
     }
   }
   if (inList) html += "</ul>";
@@ -84,54 +78,143 @@ function inlineMd(s) {
     .replace(/_(.+?)_/g, "<em>$1</em>");
 }
 
-function renderAnswer(route) {
+function renderAnswer(route, llmText) {
   const answerEl = document.getElementById("answer");
   const imgWrap = document.getElementById("answer-image");
-  answerEl.innerHTML = renderMarkdown(route.text);
-  if (route.image) {
-    imgWrap.innerHTML = `<img src="figures/${route.image}" alt="Supporting figure">`;
-  } else {
-    imgWrap.innerHTML = "";
+  let html = "";
+  if (llmText) {
+    html += `<div class="llm-answer"><p class="llm-label">Local LLM (phrased from the computed facts below):</p>${renderMarkdown(llmText)}</div>`;
+    html += `<div class="evidence-label">Computed evidence:</div>`;
+  }
+  html += renderMarkdown(route.text);
+  answerEl.innerHTML = html;
+  imgWrap.innerHTML = route.image ? `<img src="${route.image}" alt="Supporting figure">` : "";
+}
+
+async function ask() {
+  const question = document.getElementById("question").value;
+  const route = window.OFI_ROUTES.routeQuestion(question, state.events, state.provenance, state.similarityData);
+  renderAnswer(route, null);
+
+  if (llmEnabled && question.trim()) {
+    const statusEl = document.getElementById("llm-status");
+    const LLM_TIMEOUT_MS = 45000;
+    try {
+      statusEl.textContent = "Local LLM is thinking... (falls back to computed evidence if this takes too long)";
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timed out (this device's GPU may be too slow for the local LLM)")), LLM_TIMEOUT_MS)
+      );
+      const llmText = await Promise.race([window.OFI_LLM.phraseAnswer(question, route.text), timeout]);
+      renderAnswer(route, llmText);
+      statusEl.textContent = `Local LLM ready (${window.OFI_LLM.getModelId() || "model"}).`;
+    } catch (e) {
+      statusEl.textContent = "Local LLM couldn't answer in time (" + e.message + "); showing computed evidence only.";
+    }
   }
 }
 
-function ask() {
-  const question = document.getElementById("question").value;
-  renderAnswer(routeQuestion(question));
+let llmEnabled = false;
+
+function setupLlmToggle() {
+  const btn = document.getElementById("llm-toggle");
+  const statusEl = document.getElementById("llm-status");
+  if (!window.OFI_LLM || !window.OFI_LLM.isSupported()) {
+    btn.disabled = true;
+    statusEl.textContent = "Local LLM needs a WebGPU browser (recent desktop Chrome or Edge).";
+    return;
+  }
+  btn.addEventListener("click", async () => {
+    if (llmEnabled) {
+      llmEnabled = false;
+      btn.textContent = "Enable local LLM";
+      statusEl.textContent = "Local LLM disabled.";
+      return;
+    }
+    btn.disabled = true;
+    statusEl.textContent = "Downloading local model (first time only, can take a while)...";
+    try {
+      await window.OFI_LLM.ensureEngine((report) => {
+        statusEl.textContent = report.text || "Loading model...";
+      });
+      llmEnabled = true;
+      btn.textContent = "Disable local LLM";
+      statusEl.textContent = `Local LLM ready (${window.OFI_LLM.getModelId()}). Answers will be phrased by it below the computed evidence.`;
+    } catch (e) {
+      statusEl.textContent = "Could not load local LLM: " + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
-function init() {
-  document.getElementById("ask-btn").addEventListener("click", ask);
-  document.getElementById("question").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") ask();
-  });
+async function onLoadMatch() {
+  const input = document.getElementById("match-id");
+  const statusEl = document.getElementById("load-status");
+  const val = input.value.trim();
+  if (!val) {
+    await loadDefaultMatch();
+    statusEl.textContent = `Loaded default match. ${fixtureLine(state.provenance)}`;
+  } else {
+    statusEl.textContent = "Loading match from StatsBomb open data...";
+    try {
+      await loadMatch(val);
+      statusEl.textContent = `Loaded. ${fixtureLine(state.provenance)}`;
+    } catch (e) {
+      statusEl.textContent = "Could not load that match: " + e.message;
+      return;
+    }
+  }
+  document.getElementById("fixture-line").textContent = fixtureLine(state.provenance);
+  renderAnswer(window.OFI_ROUTES.buildOverview(state.events, state.provenance), null);
+}
 
-  const examplesEl = document.getElementById("examples");
-  DATA.examples.forEach((ex) => {
+const EXAMPLES = [
+  "Why was France passive for the first 70 minutes?",
+  "How aggressive was Argentina's press in each phase of the game?",
+  "Who was France's most important passer?",
+  "Which of France's other World Cup matches is the Final most similar to?",
+  "Compare Argentina and France's progressive passing and final-third entries.",
+  "What happened in extra time?",
+  "Give me the full team comparison.",
+];
+
+function setupExamples() {
+  const wrap = document.getElementById("examples");
+  for (const ex of EXAMPLES) {
     const btn = document.createElement("button");
     btn.className = "example-btn";
     btn.textContent = ex;
     btn.addEventListener("click", () => {
       document.getElementById("question").value = ex;
-      renderAnswer(routeQuestion(ex));
+      ask();
     });
-    examplesEl.appendChild(btn);
-  });
-
-  const p = DATA.provenance;
-  document.getElementById("fixture-line").textContent =
-    `Default match: ${p.fixture} - ${p.competition} (${p.date}), ${p.n_events} events, ${p.source}.`;
-
-  renderAnswer(DATA.routes.overview);
+    wrap.appendChild(btn);
+  }
 }
 
-fetch("data.json")
-  .then((r) => r.json())
-  .then((data) => {
-    DATA = data;
-    init();
-  })
-  .catch((err) => {
-    document.getElementById("answer").textContent =
-      "Could not load data.json: " + err;
+async function init() {
+  await loadDefaultMatch();
+  document.getElementById("fixture-line").textContent = fixtureLine(state.provenance);
+  setupExamples();
+  renderAnswer(window.OFI_ROUTES.buildOverview(state.events, state.provenance), null);
+
+  document.getElementById("ask-btn").addEventListener("click", ask);
+  document.getElementById("question").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ask();
   });
+  document.getElementById("load-btn").addEventListener("click", onLoadMatch);
+
+  // llm.js is a module script and may still be evaluating; wait for it
+  // (up to a few seconds) instead of checking exactly once.
+  waitForLlmModule();
+}
+
+function waitForLlmModule(attempt = 0) {
+  if (window.OFI_LLM || attempt > 50) {
+    setupLlmToggle();
+    return;
+  }
+  setTimeout(() => waitForLlmModule(attempt + 1), 100);
+}
+
+init();

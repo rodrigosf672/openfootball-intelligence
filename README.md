@@ -11,6 +11,13 @@ data, and the positioning narrative behind it.
 **Demo match:** Argentina 3–3 France (Argentina win 4–2 on penalties) — FIFA
 World Cup 2022 Final. Data: [StatsBomb open data](https://github.com/statsbomb/open-data) (4,407 events, `match_id 3869685`).
 
+**Try it live:** [rodrigosf672.github.io/openfootball-intelligence](https://rodrigosf672.github.io/openfootball-intelligence/) —
+ask a tactical question in your browser, no install needed. Every number is computed
+client-side by [`docs/ofi.js`](docs/ofi.js), a verified port of `ofi.py`, and works on
+**any** public StatsBomb open-data match (fetched live, entirely in-browser) — not just
+the demo match. An optional local LLM (WebGPU, no server) can phrase the computed
+evidence more naturally; it's not allowed to add facts beyond what's computed.
+
 ---
 
 ## The worked example
