@@ -40,6 +40,11 @@ More worked questions on other matches (Spain–Morocco, El Clásico, Netherland
 
 ![similarity](figures/similarity.png)
 
+*Figures above are pre-rendered from `ofi.py`'s computed output (nodes/edges,
+xG per shot, xT per minute, field tilt per phase); there is no bundled
+plotting script, so build your own from that data with matplotlib/mplsoccer
+if you need to regenerate or customize them.*
+
 ---
 
 ## The library

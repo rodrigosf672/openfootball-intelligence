@@ -1,4 +1,7 @@
 """Reproduce the OFI demo: World Cup 2022 Final tactical metrics."""
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ofi
 
 MATCH_ID = 3869685  # Argentina 3-3 France, FIFA World Cup 2022 Final

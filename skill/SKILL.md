@@ -518,11 +518,11 @@ Every recommendation should reference computed metrics.
 
 # Figures
 
-Load figure-style skill.
-
-Call
-
-apply_figure_style()
+kernel.py computes the underlying data (nodes/edges, xG per shot, xT per
+minute, field tilt per phase) but does not render plots itself. When a figure
+would help, build it with matplotlib/mplsoccer from that computed data and
+describe it in the response; do not call a plotting helper that does not
+exist in this skill.
 
 Recommended figures
 
@@ -787,4 +787,4 @@ If the requested analysis cannot be scientifically supported by the available da
 - Downgrade to the highest-quality supported analysis mode.
 - Never fabricate tactical evidence.
 - Never present inferred metrics as computed metrics.
-- Never substitute another match without informing the user.efore concluding.
+- Never substitute another match without informing the user.

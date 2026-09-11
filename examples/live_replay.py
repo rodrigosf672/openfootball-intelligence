@@ -4,6 +4,9 @@ In production, replace the historical load with a registered live provider:
     ofi.register_source("live", my_fetch_fn)
     events = ofi.load_match(MATCH_ID, source="live")   # polled mid-match
 """
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ofi
 
 MATCH_ID = 3869685  # World Cup 2022 Final
